@@ -1,9 +1,10 @@
 # SD webui txt2img script, adjusted for Forge
 
 This script is updated for Forge -> https://github.com/lllyasviel/stable-diffusion-webui-forge
+
 Im using the AMD version of https://github.com/lshqqytiger/stable-diffusion-webui-amdgpu-forge
 
-Install via UI and Github-adress, then reload the webui to access the script in the txt2img section.
+Install via Forge-UI, Extensions, URL for extension's git repository and Github-adress, then reload the webui to access the script in the txt2img section.
 
 Drag and drop or upload image files to modify a prompt and override default settings to modify images.
 
