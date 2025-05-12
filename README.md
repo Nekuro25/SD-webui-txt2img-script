@@ -1,8 +1,9 @@
-# SD webui txt2img script
+# SD webui txt2img script, adjusted for Forge
 
-This script is meant for the stable diffusion webui -> https://github.com/AUTOMATIC1111/stable-diffusion-webui
+This script is updated for Forge -> https://github.com/lllyasviel/stable-diffusion-webui-forge
+Im using the AMD version of https://github.com/lshqqytiger/stable-diffusion-webui-amdgpu-forge
 
-Clone or download this repository then manually Put the script `process_png_metadata.py` in the `stable-diffusion-webui\scripts` folder, reload the webui to access the script in the txt2img section.
+Install via UI and Github-adress, then reload the webui to access the script in the txt2img section.
 
 Drag and drop or upload image files to modify a prompt and override default settings to modify images.
 
@@ -15,9 +16,11 @@ overall features include:
   - override default generation settings with image metadata
 
 ### script interface
-![alt text](https://github.com/thundaga/StableDiffusionScripts/blob/main/script_interface.PNG?raw=true)
+![alt text](https://github.com/Nekuro25/SD-webui-txt2img-script/blob/main/ui.png?raw=true)
 
 source references this discussion -> https://github.com/AUTOMATIC1111/stable-diffusion-webui/discussions/4938
 
 made this script through feature request issue #7462 -> https://github.com/AUTOMATIC1111/stable-diffusion-webui/issues/7462
 
+### known issues
+Forge special flags like latent_modifier_enabled: True are not supported yet. 
