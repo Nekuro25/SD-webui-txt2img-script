@@ -9,8 +9,8 @@ from modules import images
 from modules.processing import process_images, Processed
 from modules.shared import state
 import modules.shared as shared
-from modules.shared import opts
-from modules.infotext_utils import parse_generation_parameters
+from modules.shared import opts, cmd_opts
+from modules.infotext_utils import parse_generation_parameters, paste_fields
 from modules.extras import run_pnginfo
 
 # github repository -> https://github.com/thundaga/SD-webui-txt2img-script
@@ -44,22 +44,10 @@ def hires_resize(p, parsed_text: dict):
     if 'Hires resize-2' in parsed_text:
         p.hr_resize_y = int(parsed_text['Hires resize-2'])
     return p
-
-# Stuff like FreeU, LatentModifier
-def forge_integrated(p, parsed_text: dict):
-    pattern = re.compile(r'freeu_*|latent_modifier_*')
-    matched_keys = {key for key, value in parsed_text.items() if not pattern.match(key)}
-    newdic = parsed_text.copy()
-    for key in matched_keys:
-        newdic.pop(key, None)
-    p.extra_generation_params.update(newdic) 
-    print("p extra params")   
-    print(p.extra_generation_params)   
-    return p
-    
+   
 def override_settings(p, options: list, parsed_text: dict):
-    if "Checkpoint" in options and 'Model hash' in parsed_text:
-        p.override_settings['sd_model_checkpoint'] = parsed_text['Model hash']
+    #if "Checkpoint" in options and 'Model hash' in parsed_text:
+       # p.override_settings['sd_model_checkpoint'] = parsed_text['Model hash']
     if "Clip Skip" in options and 'Clip skip' in parsed_text:
         p.override_settings['CLIP_stop_at_last_layers'] = int(parsed_text['Clip skip'])
     return p
@@ -134,7 +122,6 @@ def build_file_list(file, tab_index: int, file_list: list[dict]) -> list[dict]:
 
 # key->(option name) : Values->tuple(metadata name, object property, property specific functions)
 prompt_options = {
-    "Forge Integrated":                 (None, None, forge_integrated),
     "Checkpoint":                       ("Model hash", None, override_settings),
     "Prompt":                           ("Prompt", "prompt", prompt_modifications),
     "Negative Prompt":                  ("Negative prompt", "negative_prompt", None),
@@ -194,7 +181,6 @@ class Script(scripts.Script):
     # Files are open as images and the png info is set to the processed class for each iterated process
     def run(self,p,tab_index,upload_files,front_tags,back_tags,remove_tags,tag_limit,input_dir,output_dir,filename_format,options):
         image_batch = []
-
         # Operation based on current batch process tab
         if tab_index == 0:
             for file in upload_files:
@@ -217,13 +203,13 @@ class Script(scripts.Script):
         all_prompts = []
         infotexts = []
 
-        for parsed_text in image_batch:
+        for parsed_text in image_batch:         
             state.job = f"{state.job_no + 1} out of {state.job_count}"
 
             metadata, p_property, func = 0, 1, 2
             # go through dictionary and commit uniform actions on similar object properties
             for option, tuple in prompt_options.items():
-                match option:
+                match option:   
                     case "Prompt":
                         if option in options and  tuple[metadata] in parsed_text:
                             setattr(p, tuple[p_property], tuple[func](parsed_text,front_tags,back_tags,remove_tags, tag_limit))
@@ -241,26 +227,16 @@ class Script(scripts.Script):
                                 setattr(p, tuple[p_property], parsed_text[tuple[metadata]])
                             else:
                                 setattr(p, tuple[p_property], tuple[func](parsed_text[tuple[metadata]]))
-            # extra properties must be last, else stuff gens a bit differently
-            for option, tuple in prompt_options.items():        
-                match option:
-                    case "Forge Integrated":
-                        if option in options:
-                            p = tuple[func](p, parsed_text)                         
+             
             #del p.override_settings.keys()["sd_model_checkpoint"]
             proc = process_images(p)
 
             # Reset Hires prompts (else the prompts of the first image will be used as Hires prompt for all the others)
             p.hr_prompt = ""
             p.hr_negative_prompt = ""
-            print("alles parsed vom file")
-            print(parsed_text)
+
             # Reset extra_generation_params as it stores the Hires resize and scale (Avoid having wrong info in the infotext)
-            print("deleting extra infos")
-            print(p.extra_generation_params)
             p.extra_generation_params = {}
-            print("alles von p")
-            print(p)
             # reset seed value
             p.seed = None
             p.subseed = None

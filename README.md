@@ -24,4 +24,7 @@ source references this discussion -> https://github.com/AUTOMATIC1111/stable-dif
 made this script through feature request issue #7462 -> https://github.com/AUTOMATIC1111/stable-diffusion-webui/issues/7462
 
 ### known issues
-Forge special flags like latent_modifier_enabled: True are not supported yet. 
+Forge special plugins like FreeU or LatentModifier work with a catch:
+ - all files need to have same freeu/latent modifier values
+ - set them once, then batch works
+ - different freeu/latent will result in issues, as UI overwrites stuff
