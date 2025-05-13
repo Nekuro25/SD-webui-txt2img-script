@@ -18,8 +18,11 @@ from modules.extras import run_pnginfo
 def int_convert(text: str) -> int:
     return int(text)
 
-def float_convert(text: str) -> float:
-    return float(text)
+def float_convert(text: str):
+    if "." not in text:
+        return int(text)
+    else: 
+        return float(text)
 
 def boolean_convert(text: str) -> bool:
     return True if (text == "true") else False
@@ -42,6 +45,18 @@ def hires_resize(p, parsed_text: dict):
         p.hr_resize_y = int(parsed_text['Hires resize-2'])
     return p
 
+# Stuff like FreeU, LatentModifier
+def forge_integrated(p, parsed_text: dict):
+    pattern = re.compile(r'freeu_*|latent_modifier_*')
+    matched_keys = {key for key, value in parsed_text.items() if not pattern.match(key)}
+    newdic = parsed_text.copy()
+    for key in matched_keys:
+        newdic.pop(key, None)
+    p.extra_generation_params.update(newdic) 
+    print("p extra params")   
+    print(p.extra_generation_params)   
+    return p
+    
 def override_settings(p, options: list, parsed_text: dict):
     if "Checkpoint" in options and 'Model hash' in parsed_text:
         p.override_settings['sd_model_checkpoint'] = parsed_text['Model hash']
@@ -101,7 +116,6 @@ def prompt_modifications(parsed_text: dict, front_tags: str, back_tags: str, rem
 
 # build valid txt and image files e.g (txt(utf-8),img(png)) into valid parsed dictionaries with metadata info 
 def build_file_list(file, tab_index: int, file_list: list[dict]) -> list[dict]:
-
     file = file.name if tab_index == 0 else file
     file_ext = pathlib.Path(file).suffix
     filename = pathlib.Path(file).stem
@@ -120,6 +134,7 @@ def build_file_list(file, tab_index: int, file_list: list[dict]) -> list[dict]:
 
 # key->(option name) : Values->tuple(metadata name, object property, property specific functions)
 prompt_options = {
+    "Forge Integrated":                 (None, None, forge_integrated),
     "Checkpoint":                       ("Model hash", None, override_settings),
     "Prompt":                           ("Prompt", "prompt", prompt_modifications),
     "Negative Prompt":                  ("Negative prompt", "negative_prompt", None),
@@ -134,22 +149,18 @@ prompt_options = {
     "Denoising Strength":               ("Denoising strength", "denoising_strength", float_convert),
     "Hires Scale or Width and Height":  (None, None, hires_resize),
     "Clip Skip":                        ("Clip skip", None, override_settings),
-    "Face restoration":                 ("Face restoration", "restore_faces", boolean_convert),
 }
 
 class Script(scripts.Script): 
 
     def title(self):
-    
         return "Batch Process from PNG Metadata Info [FORGE]"
 
     def show(self, is_img2img):
-
         return not is_img2img
     
     # set up ui to drag and drop the processed images and hold their file info
     def ui(self, is_img2img):
-
         tab_index = gr.State(value=0)
         filename_format_choices = ["Exact same filename as Input file", "Same filename as Input file but with extrat digits", "Standard - Simple digits"]
         filename_format_info = "The \"Exact same filename\" option might crash or overwrite file(s) if there are multiple files with the same name in the input directory"
@@ -166,8 +177,9 @@ class Script(scripts.Script):
                         filename_format = gr.Dropdown(label="Output filename format", choices=filename_format_choices, value="Standard - Simple digits", info=filename_format_info, interactive=True, elem_id="files_batch_filename_type")
                 
                 # CheckboxGroup with all parameters assignable from the input image (output is a list with the Name of the Checkbox checked ex: ["Checkpoint", "Prompt"]) 
-                options = gr.Dropdown(list(prompt_options.keys()), label="Assign from input image", info="Select are assigned from the input, the rest from UI", multiselect = True)
-
+                gr.HTML('<br />')
+                gr.HTML('<br />')
+                options = gr.Dropdown(list(prompt_options.keys()), label="Assign from input image", info="Select all infos from PNG-Metadata you want to import, the rest is taken from UI", multiselect = True)
                 gr.HTML("<p style=\"margin-bottom:0.75em\">Optional tags to remove or add in front/end of a positive prompt on all images</p>")
                 tag_limit = gr.Checkbox(False, label="Limit to one occurence of tags to remove")
                 remove_tags = gr.Textbox(label="Tags to remove")
@@ -181,7 +193,6 @@ class Script(scripts.Script):
 
     # Files are open as images and the png info is set to the processed class for each iterated process
     def run(self,p,tab_index,upload_files,front_tags,back_tags,remove_tags,tag_limit,input_dir,output_dir,filename_format,options):
-
         image_batch = []
 
         # Operation based on current batch process tab
@@ -218,28 +229,38 @@ class Script(scripts.Script):
                             setattr(p, tuple[p_property], tuple[func](parsed_text,front_tags,back_tags,remove_tags, tag_limit))
                     case "Width and Height":
                         if option in options:
-                            p = tuple[func](p, parsed_text)
+                            p = tuple[func](p, parsed_text)                    
                     case "Hires Scale or Width and Height":
                         if option in options:
                             p = tuple[func](p, parsed_text)
                     case "Checkpoint" | "Clip Skip":
-                        p = tuple[func](p, options, parsed_text)
+                        p = tuple[func](p, options, parsed_text)     
                     case _:
                         if option in options and tuple[metadata] in parsed_text:
                             if tuple[func] == None:
                                 setattr(p, tuple[p_property], parsed_text[tuple[metadata]])
                             else:
                                 setattr(p, tuple[p_property], tuple[func](parsed_text[tuple[metadata]]))
-
+            # extra properties must be last, else stuff gens a bit differently
+            for option, tuple in prompt_options.items():        
+                match option:
+                    case "Forge Integrated":
+                        if option in options:
+                            p = tuple[func](p, parsed_text)                         
+            #del p.override_settings.keys()["sd_model_checkpoint"]
             proc = process_images(p)
 
             # Reset Hires prompts (else the prompts of the first image will be used as Hires prompt for all the others)
             p.hr_prompt = ""
             p.hr_negative_prompt = ""
-
+            print("alles parsed vom file")
+            print(parsed_text)
             # Reset extra_generation_params as it stores the Hires resize and scale (Avoid having wrong info in the infotext)
+            print("deleting extra infos")
+            print(p.extra_generation_params)
             p.extra_generation_params = {}
-
+            print("alles von p")
+            print(p)
             # reset seed value
             p.seed = None
             p.subseed = None
